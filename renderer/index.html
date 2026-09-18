@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- The renderer makes no network requests of its own: main does the
+         talking, so there is no connect-src to open up here. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:;"
+    />
+    <title>Ask</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="card" id="card">
+      <header class="ask" id="ask">
+        <svg class="glyph" id="glyph" viewBox="0 0 20 20">
+          <path d="M10 2.6l1.9 4.3 4.3 1.9-4.3 1.9-1.9 4.3-1.9-4.3L3.8 8.8l4.3-1.9z" />
+        </svg>
+
+        <input
+          id="q"
+          type="text"
+          placeholder="Ask anything"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+        />
+
+        <div class="ask-end">
+          <button class="tool" id="grab" title="Attach the whole screen  (Ctrl+Shift+S)">
+            <svg viewBox="0 0 16 16">
+              <rect x="1.9" y="2.9" width="12.2" height="8.4" rx="1.5" />
+              <path d="M5.8 13.7h4.4" />
+            </svg>
+          </button>
+          <button class="tool" id="snip" title="Pick a region of the screen  (Ctrl+S)">
+            <svg viewBox="0 0 16 16">
+              <path d="M2 5.2h1.6l1-1.7h4.8l1 1.7H12a1.6 1.6 0 011.6 1.6v4.6A1.6 1.6 0 0112 13H4a1.6 1.6 0 01-1.6-1.6V6.8" />
+              <circle cx="8" cy="8.8" r="2.1" />
+            </svg>
+          </button>
+          <button class="tool" id="gear" title="Settings">
+            <svg viewBox="0 0 16 16">
+              <path d="M2.4 4.6h11.2M2.4 11.4h11.2" />
+              <circle cx="6" cy="4.6" r="1.7" />
+              <circle cx="10.4" cy="11.4" r="1.7" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- regions waiting to go with the next question -->
+      <div class="shots" id="shots" hidden></div>
+
+      <!-- engine trouble, or the first run with no key yet -->
+      <div class="state" id="state" hidden>
+        <span class="dot"></span>
+        <span class="msg-text" id="state-text"></span>
+        <button class="mini" id="state-fix">Settings</button>
+      </div>
+
+      <!-- the conversation -->
+      <section class="sheet" id="sheet" hidden>
+        <div class="scroll" id="scroll">
+          <div class="thread" id="thread"></div>
+        </div>
+        <footer class="foot">
+          <span class="stat" id="stat"></span>
+          <div class="foot-end">
+            <button class="mini" id="stop" hidden>Stop</button>
+            <button class="mini" id="copy">Copy</button>
+            <button class="mini" id="clear">Clear</button>
+          </div>
+        </footer>
+      </section>
+
+      <!-- settings -->
+      <section class="panel" id="panel" hidden>
+        <nav class="settings-tabs" aria-label="Settings sections" role="tablist">
+          <button class="settings-tab active" data-settings-tab="general" role="tab" aria-selected="true">
+            General
+          </button>
+          <button class="settings-tab" data-settings-tab="model" role="tab" aria-selected="false">
+            Model
+          </button>
+          <button class="settings-tab" data-settings-tab="tools" role="tab" aria-selected="false">
+            Tools
+          </button>
+        </nav>
+
+        <div class="panel-body">
+          <div class="settings-page" data-settings-page="general" role="tabpanel">
+            <section class="settings-section">
+              <div class="section-title">Connection</div>
+              <div class="field">
+                <label class="name" for="s-endpoint">Address</label>
+                <span class="grow">
+                  <input type="text" id="s-endpoint" placeholder="http://localhost:8000" />
+                </span>
+              </div>
+              <div class="field">
+                <label class="name" for="s-key">API key</label>
+                <span class="grow">
+                  <input type="password" id="s-key" placeholder="sk-unsloth-…" />
+                </span>
+              </div>
+              <div class="field">
+                <label class="name" for="s-model">Model</label>
+                <span class="grow"><select id="s-model"></select></span>
+              </div>
+              <div class="field action-field">
+                <span class="name"></span>
+                <span class="grow inline-action">
+                  <button class="btn" id="s-test">Test connection</button>
+                  <span class="stat" id="s-test-out"></span>
+                </span>
+              </div>
+            </section>
+
+            <section class="settings-section">
+              <div class="section-title">App</div>
+              <div class="field">
+                <label class="name" for="s-appearance">Appearance</label>
+                <span class="grow">
+                  <select id="s-appearance">
+                    <option value="system">System</option>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                  </select>
+                </span>
+              </div>
+              <div class="field">
+                <span class="name">Shortcut</span>
+                <span class="grow">
+                  <button class="keycap" id="s-shortcut">Control+Shift+Space</button>
+                  <div class="warn" id="s-shortcut-warn" hidden>
+                    That shortcut is already in use. Choose another.
+                  </div>
+                </span>
+              </div>
+              <label class="toggle-setting compact">
+                <input type="checkbox" id="s-autostart" />
+                <span><strong>Start with Windows</strong></span>
+              </label>
+            </section>
+          </div>
+
+          <div class="settings-page" data-settings-page="model" role="tabpanel" hidden>
+            <section class="settings-section">
+              <div class="section-title">Generation</div>
+              <div class="field">
+                <label class="name" for="s-tokens">Reply limit</label>
+                <span class="grow">
+                  <input type="number" id="s-tokens" min="64" max="8192" step="64" />
+                  <div class="hint">Maximum tokens. Shorter limits finish sooner.</div>
+                </span>
+              </div>
+              <div class="field">
+                <label class="name" for="s-temp">Temperature</label>
+                <span class="grow">
+                  <input type="number" id="s-temp" min="0" max="2" step="0.1" />
+                  <div class="hint">Lower is steadier; higher is more varied.</div>
+                </span>
+              </div>
+              <div class="field stack prompt-field">
+                <label class="name" for="s-system">System prompt</label>
+                <textarea id="s-system" rows="5"></textarea>
+              </div>
+            </section>
+
+            <section class="settings-section">
+              <div class="section-title">Display</div>
+              <label class="toggle-setting">
+                <input type="checkbox" id="s-showthinking" />
+                <span>
+                  <strong>Show model thinking</strong>
+                  <span class="setting-description">Display live reasoning above the final answer.</span>
+                </span>
+              </label>
+            </section>
+          </div>
+
+          <div class="settings-page" data-settings-page="tools" role="tabpanel" hidden>
+            <section class="settings-section">
+              <div class="section-title">Screen context</div>
+              <label class="toggle-setting">
+                <input type="checkbox" id="s-autoattach" />
+                <span>
+                  <strong>Capture when Ask opens</strong>
+                  <span class="setting-description">Always attach what was visible before the widget appeared.</span>
+                </span>
+              </label>
+              <label class="toggle-setting">
+                <input type="checkbox" id="s-screentool" />
+                <span>
+                  <strong>Let the model look when needed</strong>
+                  <span class="setting-description">Uses vision for requests such as “reply to this email.”</span>
+                </span>
+              </label>
+            </section>
+
+            <section class="settings-section">
+              <div class="section-title">Search</div>
+              <label class="toggle-setting">
+                <input type="checkbox" id="s-web" />
+                <span>
+                  <strong>Web search</strong>
+                  <span class="setting-description">Use current sources instead of guessing changing facts.</span>
+                </span>
+              </label>
+              <label class="toggle-setting" id="s-image-row">
+                <input type="checkbox" id="s-imagesearch" />
+                <span>
+                  <strong>Image search</strong>
+                  <span class="setting-description">Use reference images for identification and comparison.</span>
+                </span>
+              </label>
+            </section>
+
+            <section class="settings-section">
+              <div class="section-title">Local execution</div>
+              <label class="toggle-setting compact">
+                <input type="checkbox" id="s-python" />
+                <span><strong>Python</strong></span>
+              </label>
+              <label class="toggle-setting compact">
+                <input type="checkbox" id="s-terminal" />
+                <span><strong>Shell commands</strong></span>
+              </label>
+              <div class="warn" id="s-server-warn" hidden>
+                Unsloth runs these outside Ask's permission prompts.
+              </div>
+            </section>
+
+            <section class="settings-section">
+              <div class="section-title">MCP extensions</div>
+              <label class="toggle-setting">
+                <input type="checkbox" id="s-usetools" />
+                <span>
+                  <strong>Enable connected tools</strong>
+                  <span class="setting-description">Read-only actions run directly; changes ask first.</span>
+                </span>
+              </label>
+              <div class="servers" id="s-servers"></div>
+              <div class="row-end">
+                <button class="btn" id="s-mcp-open">Edit config</button>
+                <button class="btn" id="s-mcp-reload">Reload</button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="panel-foot">
+          <button class="btn" id="s-cancel">Cancel</button>
+          <button class="btn go" id="s-save">Save</button>
+        </div>
+      </section>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,48 @@
+{
+  "name": "ask",
+  "productName": "Ask",
+  "version": "0.1.0",
+  "description": "A keybind widget for a local model",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --config.win.signAndEditExecutable=false"
+  },
+  "author": "Chimppppy",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "io.github.chimppppy.ask",
+    "productName": "Ask",
+    "files": [
+      "*.js",
+      "renderer/**/*",
+      "overlay/**/*",
+      "build/icon.ico"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Ask"
+    }
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0"
+  }
+}

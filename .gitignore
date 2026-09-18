@@ -1,0 +1,21 @@
+node_modules/
+dist/
+
+# Local configuration and credentials never belong in source control.
+.env
+.env.*
+!.env.example
+engine.json
+settings.json
+mcp.json
+*.pem
+*.key
+*.log
+npm-debug.log*
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+
+# preview.js writes its screenshots next to itself unless ASK_SHOT_DIR is set
+dev/*.png

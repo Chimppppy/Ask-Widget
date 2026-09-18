@@ -1,0 +1,1142 @@
+/* ============================================================
+   Ask — one quiet card, most of the time one line of it
+
+   The tokens are the ones from Tasks, unchanged, so the two
+   apps sit next to each other without looking like strangers.
+   ============================================================ */
+
+@font-face {
+  font-family: "Geist";
+  src: url("fonts/geist-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Plex Mono";
+  src: url("fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: block;
+}
+
+:root {
+  color-scheme: dark;
+
+  --card: #232322;
+  --card-edge: rgba(255, 255, 255, 0.085);
+
+  --text: #ededec;
+  --text-2: #8d8d8a;
+  --text-3: #6a6a67;
+  --hover: rgba(255, 255, 255, 0.045);
+  --hover-2: rgba(255, 255, 255, 0.08);
+  --ring: rgba(255, 255, 255, 0.26);
+  --hair: rgba(255, 255, 255, 0.07);
+  --sheet: #262625;
+
+  --alert: #e0695b;
+  --live: #7fb069;
+
+  --sans: "Geist", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Plex Mono", Consolas, monospace;
+  --out: cubic-bezier(0.22, 0.8, 0.3, 1);
+
+  --drop: 0 10px 28px rgba(0, 0, 0, 0.46), 0 2px 7px rgba(0, 0, 0, 0.34);
+}
+
+.light {
+  color-scheme: light;
+
+  --card: #fdfdfc;
+  --card-edge: rgba(0, 0, 0, 0.09);
+
+  --text: #1c1c1a;
+  --text-2: #77776f;
+  --text-3: #9a9a92;
+  --hover: rgba(20, 18, 14, 0.04);
+  --hover-2: rgba(20, 18, 14, 0.07);
+  --ring: rgba(20, 18, 14, 0.24);
+  --hair: rgba(20, 18, 14, 0.08);
+  --sheet: #ffffff;
+
+  --alert: #c4503f;
+  --live: #4f7a3a;
+
+  --drop: 0 10px 26px rgba(20, 18, 14, 0.16), 0 2px 6px rgba(20, 18, 14, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* The window is transparent so the card can have real corners and a real
+   shadow, and this padding is the room that shadow needs. It has to stay in
+   step with PAD in main.js: too little and Windows clips the blur into a
+   visible rectangle. Acrylic mode overrides it to zero below, because there
+   the OS draws the shadow outside the window entirely. */
+body {
+  padding: 44px;
+  background: transparent;
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--text);
+  user-select: none;
+  cursor: default;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: default;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  outline: none;
+}
+
+svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ─────────────────── acrylic (Windows 11) ───────────────────
+
+   Windows blurs what is behind the window and draws the corners and the
+   shadow itself. The card becomes a tint over that blur rather than a solid
+   colour, and there is no padding to hold a shadow that no longer exists. */
+
+[data-chrome="acrylic"] {
+  --card: rgba(28, 28, 27, 0.58);
+  --sheet: rgba(33, 33, 32, 0.66);
+  --card-edge: rgba(255, 255, 255, 0.11);
+}
+
+[data-chrome="acrylic"].light {
+  --card: rgba(252, 252, 251, 0.62);
+  --sheet: rgba(255, 255, 255, 0.7);
+  --card-edge: rgba(0, 0, 0, 0.07);
+}
+
+[data-chrome="acrylic"] body {
+  padding: 0;
+}
+
+[data-chrome="acrylic"] .card {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* a code block reads as a solid panel rather than another layer of haze */
+[data-chrome="acrylic"] .body pre {
+  background: rgba(0, 0, 0, 0.26);
+}
+
+[data-chrome="acrylic"].light .body pre {
+  background: rgba(20, 18, 14, 0.05);
+}
+
+/* ───────────────────────── the card ───────────────────────── */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  border-radius: 14px;
+  box-shadow: var(--drop);
+  overflow: hidden;
+  animation: lift 0.16s var(--out);
+}
+
+@keyframes lift {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+}
+
+/* ───────────────────────── the ask line ───────────────────────── */
+
+.ask {
+  -webkit-app-region: drag;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  height: 76px;
+  padding: 0 14px 0 18px;
+}
+
+.glyph {
+  -webkit-app-region: no-drag;
+  width: 19px;
+  height: 19px;
+  flex: none;
+  color: var(--text-3);
+  transition: color 0.2s var(--out);
+}
+
+.busy .glyph {
+  color: var(--text-2);
+  animation: turn 1.1s linear infinite;
+}
+
+@keyframes turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+#q {
+  -webkit-app-region: no-drag;
+  flex: 1;
+  min-width: 0;
+  font-size: 16.5px;
+  font-variation-settings: "wght" 380;
+  letter-spacing: -0.014em;
+  user-select: text;
+}
+
+#q::placeholder {
+  color: var(--text-3);
+}
+
+.ask-end {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.tool {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  transition: background 0.15s var(--out), color 0.15s var(--out);
+}
+
+.tool svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tool:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.tool:active {
+  background: var(--hover-2);
+}
+
+.tool.on {
+  color: var(--text);
+  background: var(--hover-2);
+}
+
+.tool:disabled {
+  opacity: 0.35;
+}
+
+.tool:disabled:hover {
+  background: none;
+  color: var(--text-3);
+}
+
+/* ───────────────────────── attached regions ───────────────────────── */
+
+.shots {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  padding: 0 14px 14px 18px;
+  flex-wrap: wrap;
+}
+
+.shot {
+  position: relative;
+  height: 54px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--hair);
+  background: var(--sheet);
+  animation: rise 0.22s var(--out) backwards;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.shot img {
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: 190px;
+  object-fit: cover;
+  -webkit-user-drag: none;
+}
+
+.shot .drop {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 19px;
+  height: 19px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: rgba(16, 16, 15, 0.72);
+  opacity: 0;
+  transition: opacity 0.14s var(--out), background 0.14s var(--out);
+}
+
+.shot:hover .drop {
+  opacity: 1;
+}
+
+.shot .drop:hover {
+  background: var(--alert);
+}
+
+.shot .drop svg {
+  width: 10px;
+  height: 10px;
+  stroke-width: 1.8;
+}
+
+.shot .dim {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(16, 16, 15, 0.72);
+  color: #ededec;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────────────────────── the answer ───────────────────────── */
+
+.sheet {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--hair);
+  background: var(--sheet);
+  min-height: 0;
+}
+
+.scroll {
+  max-height: 430px;
+  overflow-y: auto;
+  padding: 16px 18px;
+  min-height: 0;
+}
+
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.msg {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  animation: rise 0.24s var(--out) backwards;
+}
+
+.who {
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.msg.user .body {
+  color: var(--text-2);
+  font-size: 13.5px;
+  letter-spacing: -0.008em;
+}
+
+.msg.bot .body {
+  color: var(--text);
+  font-size: 13.8px;
+  line-height: 1.58;
+  letter-spacing: -0.008em;
+  user-select: text;
+  cursor: text;
+}
+
+.msg.fail .body {
+  color: var(--alert);
+  font-size: 13px;
+}
+
+.body p + p {
+  margin-top: 0.7em;
+}
+
+.body ul,
+.body ol {
+  margin: 0.5em 0 0.5em 1.15em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28em;
+}
+
+.body li {
+  padding-left: 0.15em;
+}
+
+.body h1,
+.body h2,
+.body h3 {
+  font-size: 13.8px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  margin: 0.8em 0 0.2em;
+}
+
+.body h1:first-child,
+.body h2:first-child,
+.body h3:first-child {
+  margin-top: 0;
+}
+
+.body strong {
+  font-variation-settings: "wght" 600;
+}
+
+.body code {
+  font-family: var(--mono);
+  font-size: 11.8px;
+  background: var(--hover-2);
+  border-radius: 4px;
+  padding: 1.5px 4.5px;
+}
+
+.body pre {
+  margin: 0.65em 0;
+  padding: 11px 13px;
+  border-radius: 9px;
+  background: var(--card);
+  border: 1px solid var(--hair);
+  overflow-x: auto;
+}
+
+.body pre code {
+  background: none;
+  padding: 0;
+  font-size: 11.8px;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.body a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--ring);
+}
+
+/* the caret that follows the stream in, so a slow first token still
+   looks like something is happening */
+.tick {
+  display: inline-block;
+  width: 6.5px;
+  height: 13px;
+  margin-left: 1px;
+  vertical-align: -2px;
+  border-radius: 1.5px;
+  background: var(--text-3);
+  animation: blink 1.05s steps(2, start) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ─────────────────────── thinking out loud ───────────────────────
+
+   A reasoning model spends most of its budget here before it writes a word
+   of the answer. Showing it is the difference between "working" and "hung". */
+
+.think {
+  border-left: 2px solid var(--hair);
+  padding: 1px 0 1px 11px;
+  animation: rise 0.22s var(--out) backwards;
+}
+
+.think-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.think-head .caret {
+  width: 9px;
+  height: 9px;
+  transition: transform 0.15s var(--out);
+}
+
+.think.open .think-head .caret {
+  transform: rotate(90deg);
+}
+
+.think.live .think-head {
+  animation: breathe 1.5s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.think-body {
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-3);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 5px;
+  max-height: 58px;
+  overflow: hidden;
+  user-select: text;
+  cursor: text;
+  /* fade the top edge so a running thought reads as a window onto something
+     longer rather than a block that starts mid sentence */
+  mask-image: linear-gradient(to bottom, transparent, #000 22px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22px);
+}
+
+.think.open .think-body {
+  max-height: 260px;
+  overflow-y: auto;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.think.done:not(.open) .think-body {
+  display: none;
+}
+
+/* ───────────────────────── tool runs ───────────────────────── */
+
+/* A tool row sits between two stretches of answer, so it reads as something
+   that happened rather than something the model said. */
+.run {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 1px solid var(--hair);
+  background: var(--card);
+  animation: rise 0.22s var(--out) backwards;
+}
+
+.run-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.run-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--text-3);
+}
+
+.run.running .run-dot {
+  background: var(--live);
+  animation: pulse 1.1s ease-in-out infinite;
+}
+
+.run.asking .run-dot,
+.run.awaiting .run-dot {
+  background: var(--alert);
+}
+
+.run.failed .run-dot,
+.run.declined .run-dot {
+  background: var(--alert);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.run-name {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text);
+  flex: none;
+}
+
+.run-args {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-3);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-state {
+  font-size: 10.5px;
+  color: var(--text-3);
+  flex: none;
+}
+
+.run-why {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.run-out {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--text-2);
+  max-height: 108px;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+  cursor: text;
+}
+
+.run-ask {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 1px;
+}
+
+.run-ask .spacer {
+  flex: 1;
+}
+
+.ask-btn {
+  height: 26px;
+  padding: 0 11px;
+  border-radius: 7px;
+  border: 1px solid var(--hair);
+  font-size: 11.5px;
+  color: var(--text-2);
+  transition: background 0.14s var(--out), color 0.14s var(--out),
+    border-color 0.14s var(--out);
+}
+
+.ask-btn:hover {
+  background: var(--hover);
+  border-color: var(--ring);
+  color: var(--text);
+}
+
+.ask-btn.yes {
+  background: var(--hover-2);
+  border-color: transparent;
+  color: var(--text);
+}
+
+.ask-btn.no:hover {
+  border-color: var(--alert);
+  color: var(--alert);
+}
+
+/* what the model saw when it looked, so a silent screenshot is never
+   actually silent */
+.run-shot {
+  display: block;
+  max-width: 100%;
+  max-height: 150px;
+  width: auto;
+  border-radius: 6px;
+  border: 1px solid var(--hair);
+  -webkit-user-drag: none;
+}
+
+/* ───────────────────────── servers ───────────────────────── */
+
+.servers {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.server {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 7px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.server:hover {
+  background: var(--hover);
+}
+
+.server .nm {
+  flex: none;
+  color: var(--text);
+}
+
+.server .det {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.server.bad .det {
+  color: var(--alert);
+}
+
+.server-none {
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.55;
+  padding: 2px 2px 6px;
+}
+
+.row-end {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 8px;
+}
+
+/* ───────────────────────── the footer ───────────────────────── */
+
+.foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  height: 38px;
+  padding: 0 10px 0 18px;
+  border-top: 1px solid var(--hair);
+}
+
+.stat {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.foot-end {
+  display: flex;
+  gap: 2px;
+  flex: none;
+}
+
+.mini {
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  transition: background 0.14s var(--out), color 0.14s var(--out);
+}
+
+.mini:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* ───────────────────────── engine state ───────────────────────── */
+
+.state {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 18px;
+  border-top: 1px solid var(--hair);
+  background: var(--sheet);
+  font-size: 12.3px;
+  color: var(--text-2);
+  letter-spacing: -0.006em;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--alert);
+}
+
+.state.good .dot {
+  background: var(--live);
+}
+
+.state .msg-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ───────────────────────── settings ───────────────────────── */
+
+/* The footer stays put and the fields scroll under it, so Save is never
+   below the fold on a short screen. */
+.panel {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--hair);
+  background: var(--sheet);
+  max-height: 460px;
+  min-height: 0;
+  animation: rise 0.2s var(--out);
+}
+
+.settings-tabs {
+  flex: none;
+  display: flex;
+  gap: 22px;
+  height: 42px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--hair);
+}
+
+.settings-tab {
+  position: relative;
+  height: 42px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  transition: color 0.14s var(--out);
+}
+
+.settings-tab:hover {
+  color: var(--text-2);
+}
+
+.settings-tab.active {
+  color: var(--text);
+}
+
+.settings-tab.active::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  background: var(--text);
+}
+
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 20px 10px;
+}
+
+.settings-page {
+  min-height: 300px;
+}
+
+.settings-section {
+  padding: 15px 0;
+}
+
+.settings-section + .settings-section {
+  border-top: 1px solid var(--hair);
+}
+
+.section-title {
+  margin-bottom: 9px;
+  font-size: 12.5px;
+  font-variation-settings: "wght" 600;
+  color: var(--text);
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 38px;
+}
+
+.field .name {
+  flex: none;
+  width: 104px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.field .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.field input[type="text"],
+.field input[type="password"],
+.field input[type="number"],
+.field select,
+.field textarea {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--hair);
+  border-radius: 7px;
+  padding: 7px 9px;
+  font-size: 12.5px;
+  user-select: text;
+  transition: background 0.14s var(--out), box-shadow 0.14s var(--out);
+}
+
+.field textarea {
+  resize: none;
+  line-height: 1.5;
+  font-size: 12px;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  background: var(--hover);
+  border-color: var(--ring);
+}
+
+.field select option {
+  background: var(--sheet);
+  color: var(--text);
+}
+
+.field .hint {
+  font-size: 11px;
+  color: var(--text-3);
+  padding: 2px 2px 0;
+}
+
+.field.stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.prompt-field .name {
+  width: auto;
+}
+
+.action-field {
+  min-height: 32px;
+}
+
+.inline-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toggle-setting {
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 7px 2px;
+  color: var(--text-2);
+}
+
+.toggle-setting input {
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  accent-color: var(--text-2);
+}
+
+.toggle-setting strong {
+  display: block;
+  color: var(--text);
+  font-size: 12.5px;
+  font-variation-settings: "wght" 480;
+}
+
+.toggle-setting .setting-description {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+
+.toggle-setting.compact {
+  align-items: center;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.toggle-setting.compact input {
+  margin-top: 0;
+}
+
+.toggle-setting.disabled {
+  opacity: 0.45;
+}
+
+.warn {
+  color: var(--alert);
+  font-size: 11.5px;
+  padding: 6px 2px 0;
+}
+
+.panel-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--hair);
+}
+
+.btn {
+  height: 29px;
+  padding: 0 13px;
+  border-radius: 8px;
+  border: 1px solid var(--hair);
+  font-size: 12.5px;
+  color: var(--text-2);
+  transition: background 0.14s var(--out), color 0.14s var(--out),
+    border-color 0.14s var(--out);
+}
+
+.btn:hover {
+  background: var(--hover);
+  border-color: var(--ring);
+  color: var(--text);
+}
+
+.btn.go {
+  background: var(--hover-2);
+  border-color: transparent;
+  color: var(--text);
+}
+
+.btn.go:hover {
+  background: var(--ring);
+}
+
+/* the shortcut capture box, which listens for a chord instead of text */
+.keycap {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--hair);
+  border-radius: 7px;
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  text-align: left;
+  transition: background 0.14s var(--out), box-shadow 0.14s var(--out);
+}
+
+.keycap:hover {
+  background: var(--hover-2);
+}
+
+.keycap.listening {
+  background: var(--hover);
+  border-color: var(--ring);
+  color: var(--text-3);
+}
+
+/* ───────────────────────── scrollbar ───────────────────────── */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--hover-2);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ring);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.05ms !important;
+  }
+}
